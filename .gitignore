@@ -37,3 +37,14 @@ next-env.d.ts
 
 # learning notes
 学习笔记-*.md
+
+/app/generated/prisma
+
+# env files
+.env
+
+# IDE / Agent tools
+.agents/
+.claude/
+.windsurf/
+skills-lock.json

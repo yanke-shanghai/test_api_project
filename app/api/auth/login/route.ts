@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@/app/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { comparePassword, generateToken } from '@/lib/auth';
 
-// 共享用户数据存储（全局变量，同一服务器实例内共享）
-declare global {
-  var mockUsers: Array<{ email: string; password: string }>;
-}
-
-// 初始化用户存储
-if (!global.mockUsers) {
-  global.mockUsers = [];
-}
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL || '' });
+const prisma = new PrismaClient({ adapter });
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +22,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 查找用户
-    const user = global.mockUsers.find((u) => u.email === email);
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
     // 验证用户是否存在
     if (!user) {
@@ -36,19 +34,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 验证密码（当前阶段明文比较，后续接入数据库时加密）
-    if (user.password !== password) {
+    // 使用 bcrypt 验证密码
+    const isPasswordValid = await comparePassword(password, user.passwordHash);
+    if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, error: '邮箱或密码错误' },
         { status: 400 }
       );
     }
 
-    console.log('[Auth API] 登录成功:', { email });
+    // 生成 JWT Token
+    const token = generateToken(user.id, user.email);
+
+    console.log('[Auth API] 登录成功:', { email, userId: user.id });
 
     return NextResponse.json({
       success: true,
-      user: { email },
+      user: { id: user.id, email: user.email },
+      token,
     });
   } catch (error: any) {
     console.error('[Auth API] 登录错误:', error);

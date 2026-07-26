@@ -3,14 +3,17 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface User {
+  id: string;
   email: string;
 }
 
 interface AuthContextType {
   isLoggedIn: boolean;
   user: User | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  getToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -34,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.success) {
         setIsLoggedIn(true);
         setUser(data.user);
+        setToken(data.token);
       } else {
         throw new Error(data.error || '登录失败');
       }
@@ -45,10 +50,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setIsLoggedIn(false);
     setUser(null);
+    setToken(null);
   }, []);
 
+  const getToken = useCallback(() => {
+    return token;
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, token, login, logout, getToken }}>
       {children}
     </AuthContext.Provider>
   );

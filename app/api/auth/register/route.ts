@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@/app/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { hashPassword } from '@/lib/auth';
 
-// 共享用户数据存储（全局变量，同一服务器实例内共享）
-declare global {
-  var mockUsers: Array<{ email: string; password: string }>;
-}
-
-// 初始化用户存储
-if (!global.mockUsers) {
-  global.mockUsers = [];
-}
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL || '' });
+const prisma = new PrismaClient({ adapter });
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +39,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查邮箱是否已注册
-    const existingUser = global.mockUsers.find((user) => user.email === email);
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
     if (existingUser) {
       return NextResponse.json(
         { success: false, error: '该邮箱已注册' },
@@ -51,9 +50,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 注册新用户（当前阶段明文存储，后续接入数据库时加密）
-    global.mockUsers.push({ email, password });
-    console.log('[Auth API] 注册成功:', { email, totalUsers: global.mockUsers.length });
+    // 使用 bcrypt 加密密码
+    const passwordHash = await hashPassword(password);
+
+    // 创建用户到数据库
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+      },
+    });
+
+    console.log('[Auth API] 注册成功:', { email, userId: user.id });
 
     return NextResponse.json({
       success: true,

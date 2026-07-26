@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Sparkles, Shirt, ArrowRight } from 'lucide-react';
+import { Sparkles, Shirt, ArrowRight, AlertCircle } from 'lucide-react';
 import ImageUploader from '../components/ImageUploader';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ResultDisplay from '../components/ResultDisplay';
 import Header from '../components/Header';
+import { useAuth } from '../contexts/AuthContext';
 
 type Status = 'upload' | 'loading' | 'result' | 'error';
 
 export default function Home() {
+  const { isLoggedIn, getToken } = useAuth();
   const [personImage, setPersonImage] = useState<File | null>(null);
   const [clothingImage, setClothingImage] = useState<File | null>(null);
   const [status, setStatus] = useState<Status>('upload');
@@ -19,6 +21,14 @@ export default function Home() {
   const [clothingError, setClothingError] = useState<string>('');
 
   const handleStartTryOn = useCallback(async () => {
+    // 检查登录状态
+    if (!isLoggedIn) {
+      console.error('[Frontend] 用户未登录');
+      setErrorMessage('请先登录后再进行换衣');
+      setStatus('error');
+      return;
+    }
+
     if (!personImage || !clothingImage) {
       console.error('[Frontend] 缺少人像照片或服装照片');
       setErrorMessage('请上传人像照片和服装照片');
@@ -39,6 +49,10 @@ export default function Home() {
 
       console.log('[Frontend] 准备发送请求到 /api/try-on');
 
+      // 获取 JWT Token
+      const token = getToken();
+      console.log('[Frontend] JWT Token:', token ? '已获取' : '未获取');
+
       // 设置前端超时（60秒）
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -50,6 +64,9 @@ export default function Home() {
         method: 'POST',
         body: formData,
         signal: controller.signal,
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
 
       clearTimeout(timeoutId);
@@ -60,7 +77,12 @@ export default function Home() {
         console.error('[Frontend] HTTP 错误:', response.status);
         const errorData = await response.json();
         console.error('[Frontend] 错误详情:', errorData);
-        setErrorMessage(errorData.error || `HTTP ${response.status} 错误`);
+        
+        if (response.status === 401) {
+          setErrorMessage('登录已过期，请重新登录');
+        } else {
+          setErrorMessage(errorData.error || `HTTP ${response.status} 错误`);
+        }
         setStatus('error');
         return;
       }
@@ -88,7 +110,7 @@ export default function Home() {
       }
       setStatus('error');
     }
-  }, [personImage, clothingImage]);
+  }, [personImage, clothingImage, isLoggedIn, getToken]);
 
   const handleRetry = useCallback(() => {
     handleStartTryOn();
@@ -120,6 +142,17 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         {status === 'upload' && (
           <div className="space-y-8">
+            {/* Login Required Notice */}
+            {!isLoggedIn && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle size={24} className="text-yellow-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800 mb-1">需要登录</h4>
+                  <p className="text-yellow-600 text-sm">请先登录账号后再使用换衣功能</p>
+                </div>
+              </div>
+            )}
+
             {/* Upload Section */}
             <div className="grid md:grid-cols-2 gap-8">
               <ImageUploader
@@ -144,9 +177,9 @@ export default function Home() {
             <div className="flex justify-center">
               <button
                 onClick={handleStartTryOn}
-                disabled={!personImage || !clothingImage}
+                disabled={!personImage || !clothingImage || !isLoggedIn}
                 className={`flex items-center gap-3 px-8 py-4 rounded-full font-bold text-lg transition-all duration-300 shadow-lg ${
-                  personImage && clothingImage
+                  personImage && clothingImage && isLoggedIn
                     ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white hover:from-pink-600 hover:via-purple-600 hover:to-blue-600 hover:shadow-xl hover:scale-105'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}

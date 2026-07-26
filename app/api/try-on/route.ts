@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@/app/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { arkService } from '../../../services/arkService';
 import { ArkServiceError } from '../../../types/ark';
+import { verifyToken } from '@/lib/auth';
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL || '' });
+const prisma = new PrismaClient({ adapter });
 
 /**
  * AI试衣API路由
  *
  * 使用 Ark API (doubao-seedream-5-0-260128 模型) 实现图片换衣功能
+ * 需要登录认证（JWT Token）
  *
  * 请求参数:
  * - personImage: 人像照片 (File, JPG/PNG, 最大10MB)
  * - clothingImage: 服装照片 (File, JPG/PNG, 最大10MB)
+ * - Authorization: Bearer <JWT Token>
  *
  * 响应:
  * - success: boolean
  * - resultUrl: string (生成的换衣图片URL)
+ * - recordId: string (记录ID)
  * - message: string
  * - error: string (失败时)
  */
@@ -24,6 +33,31 @@ export async function POST(request: NextRequest) {
   console.log('[API] 请求时间:', new Date().toISOString());
 
   try {
+    // 验证 JWT Token
+    console.log('[API] 步骤0: 验证 JWT Token');
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API] 未授权: 缺少 Authorization Header');
+      return NextResponse.json(
+        { success: false, error: '未授权，请登录' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.slice(7);
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      console.error('[API] 未授权: 无效的 Token');
+      return NextResponse.json(
+        { success: false, error: '无效的 Token' },
+        { status: 401 }
+      );
+    }
+
+    const userId = decoded.sub;
+    console.log('[API] Token 验证成功:', { userId });
+    console.log('[API] 步骤0完成: 耗时', Date.now() - startTime, 'ms');
+
     console.log('[API] 步骤1: 解析 FormData');
     const formData = await request.formData();
     const personImage = formData.get('personImage') as File;
@@ -39,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (!personImage || !clothingImage) {
       console.error('[API] 文件验证失败: 缺少人像照片或服装照片');
       return NextResponse.json(
-        { error: '请上传人像照片和服装照片' },
+        { success: false, error: '请上传人像照片和服装照片' },
         { status: 400 }
       );
     }
@@ -52,7 +86,7 @@ export async function POST(request: NextRequest) {
         clothingImageType: clothingImage.type,
       });
       return NextResponse.json(
-        { error: '仅支持JPG/JPEG和PNG格式' },
+        { success: false, error: '仅支持JPG/JPEG和PNG格式' },
         { status: 400 }
       );
     }
@@ -66,7 +100,7 @@ export async function POST(request: NextRequest) {
         maxSize,
       });
       return NextResponse.json(
-        { error: '图片大小不能超过10MB' },
+        { success: false, error: '图片大小不能超过10MB' },
         { status: 400 }
       );
     }
@@ -91,12 +125,28 @@ export async function POST(request: NextRequest) {
 
     console.log('[API] 步骤3完成: 耗时', Date.now() - startTime, 'ms');
     console.log('[API] 换衣成功:', resultUrl);
+
+    // 保存换衣记录到数据库
+    console.log('[API] 步骤4: 保存换衣记录到数据库');
+    const record = await prisma.tryOnRecord.create({
+      data: {
+        userId,
+        personImageUrl: personBase64,
+        clothingImageUrl: clothingBase64,
+        resultImageUrl: resultUrl,
+        status: 'success',
+      },
+    });
+
+    console.log('[API] 步骤4完成: 耗时', Date.now() - startTime, 'ms');
+    console.log('[API] 记录保存成功:', { recordId: record.id });
     console.log('[API] ==================== 请求结束 ====================');
     console.log('[API] 总耗时:', Date.now() - startTime, 'ms');
 
     return NextResponse.json({
       success: true,
       resultUrl,
+      recordId: record.id,
       message: '换衣成功',
     });
 
@@ -123,7 +173,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: error.message },
+        { success: false, error: error.message },
         { status: statusCode }
       );
     }
@@ -131,7 +181,7 @@ export async function POST(request: NextRequest) {
     // 处理其他未知错误
     console.error('[API] 未知错误详情:', error);
     return NextResponse.json(
-      { error: '换衣失败，请重试' },
+      { success: false, error: '换衣失败，请重试' },
       { status: 500 }
     );
   }

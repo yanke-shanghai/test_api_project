@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  
+  tryOnRecords TryOnRecord[]
+
+  @@map("users")
+  @@index([email])
+}
+
+model TryOnRecord {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  personImageUrl   String   @map("person_image_url")
+  clothingImageUrl String   @map("clothing_image_url")
+  resultImageUrl   String?  @map("result_image_url")
+  status           String   @default("processing")
+  createdAt        DateTime @default(now()) @map("created_at")
+  
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("try_on_records")
+  @@index([userId])
+}
