@@ -44,13 +44,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成 JWT Token
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.isAdmin);
 
-    console.log('[Auth API] 登录成功:', { email, userId: user.id });
+    console.log('[Auth API] 登录成功:', { email, userId: user.id, isAdmin: user.isAdmin });
 
     return NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, isAdmin: user.isAdmin },
       token,
     });
   } catch (error: any) {

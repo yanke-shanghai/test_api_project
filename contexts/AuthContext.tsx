@@ -5,13 +5,15 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 interface User {
   id: string;
   email: string;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
   isLoggedIn: boolean;
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  isAdmin: boolean;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   getToken: () => string | null;
 }
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoggedIn(true);
         setUser(data.user);
         setToken(data.token);
+        return data.user as User;
       } else {
         throw new Error(data.error || '登录失败');
       }
@@ -57,8 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return token;
   }, [token]);
 
+  const isAdmin = user?.isAdmin ?? false;
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, token, login, logout, getToken }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, token, isAdmin, login, logout, getToken }}>
       {children}
     </AuthContext.Provider>
   );

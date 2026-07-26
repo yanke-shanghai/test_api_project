@@ -42,9 +42,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      // 登录成功后跳转到首页
-      router.push('/');
+      const user = await login(email, password);
+      // 管理员跳转到后台，普通用户跳转到首页
+      if (user.isAdmin) {
+        router.push('/admin');
+      } else {
+        router.push('/');
+      }
     } catch (err: any) {
       setError(err.message || '登录失败，请重试');
     } finally {

@@ -1,7 +1,7 @@
 import jwt, { Secret } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 
-export function generateToken(userId: string, email: string): string {
+export function generateToken(userId: string, email: string, isAdmin: boolean): string {
   const secret = process.env.JWT_SECRET as Secret;
   const expiresIn = parseInt(process.env.JWT_EXPIRES_IN || '86400');
   
@@ -10,13 +10,13 @@ export function generateToken(userId: string, email: string): string {
   }
 
   return jwt.sign(
-    { sub: userId, email },
+    { sub: userId, email, isAdmin },
     secret,
     { expiresIn }
   );
 }
 
-export function verifyToken(token: string): { sub: string; email: string } | null {
+export function verifyToken(token: string): { sub: string; email: string; isAdmin: boolean } | null {
   const secret = process.env.JWT_SECRET as Secret;
   
   if (!secret) {
@@ -24,7 +24,7 @@ export function verifyToken(token: string): { sub: string; email: string } | nul
   }
 
   try {
-    const decoded = jwt.verify(token, secret) as { sub: string; email: string };
+    const decoded = jwt.verify(token, secret) as { sub: string; email: string; isAdmin: boolean };
     return decoded;
   } catch {
     return null;
