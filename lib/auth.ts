@@ -1,5 +1,5 @@
 import jwt, { Secret } from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export function generateToken(userId: string, email: string, isAdmin: boolean): string {
   const secret = process.env.JWT_SECRET as Secret;
