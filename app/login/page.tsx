@@ -6,6 +6,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+const SHINE_CLASSES =
+  'relative overflow-hidden cursor-pointer ' +
+  'before:absolute before:inset-0 before:rounded-[inherit] ' +
+  'before:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.7)_50%,transparent_75%,transparent_100%)] ' +
+  'before:bg-[length:250%_250%,100%_100%] before:bg-[position:200%_0,0_0] before:bg-no-repeat ' +
+  'before:transition-[background-position_0s_ease] before:duration-1000 ' +
+  'hover:before:bg-[position:-100%_0,0_0] ' +
+  'dark:before:bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.5)_50%,transparent_75%,transparent_100%)]';
+
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
@@ -143,7 +152,7 @@ export default function LoginPage() {
               isLoading
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : email && password
-                ? 'bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white hover:from-pink-600 hover:via-purple-600 hover:to-blue-600 shadow-lg hover:shadow-xl'
+                ? `bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white hover:from-pink-600 hover:via-purple-600 hover:to-blue-600 shadow-lg hover:shadow-xl ${SHINE_CLASSES}`
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
           >
@@ -156,7 +165,6 @@ export default function LoginPage() {
               <>
                 <LogIn size={22} />
                 登录
-                <ArrowRight size={22} />
               </>
             )}
           </button>
