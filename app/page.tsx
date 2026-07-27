@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ResultDisplay from '../components/ResultDisplay';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
+import { compressImage, blobToFile } from '../lib/compressImage';
 
 type Status = 'upload' | 'loading' | 'result' | 'error';
 
@@ -52,9 +53,21 @@ export default function Home() {
     setStatus('loading');
 
     try {
+      // 压缩图片（Vercel Serverless 限制 4.5MB）
+      console.log('[Frontend] 开始压缩图片...');
+      const [compressedPerson, compressedClothing] = await Promise.all([
+        compressImage(personImage, { maxSize: 1920, quality: 0.8, targetSize: 1.5 * 1024 * 1024 }),
+        compressImage(clothingImage, { maxSize: 1920, quality: 0.8, targetSize: 1.5 * 1024 * 1024 }),
+      ]);
+
+      const personFile = blobToFile(compressedPerson, personImage.name);
+      const clothingFile = blobToFile(compressedClothing, clothingImage.name);
+
+      console.log('[Frontend] 压缩后 - 人像:', personFile.size, 'bytes, 服装:', clothingFile.size, 'bytes');
+
       const formData = new FormData();
-      formData.append('personImage', personImage);
-      formData.append('clothingImage', clothingImage);
+      formData.append('personImage', personFile);
+      formData.append('clothingImage', clothingFile);
 
       console.log('[Frontend] 准备发送请求到 /api/try-on');
 
